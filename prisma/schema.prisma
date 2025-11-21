@@ -1,0 +1,102 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  role      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  interviews Interview[]
+  resumes    Resume[]
+}
+
+model Interview {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      String   // technical, behavioral, hr, communication, custom
+  status    String   @default("in_progress") // in_progress, completed
+  
+  // Scores
+  overallScore      Int?
+  fluencyScore      Int?
+  confidenceScore   Int?
+  clarityScore      Int?
+  contentScore      Int?
+  articulationScore Int?
+  fillerWordCount   Int?
+  
+  // Metadata
+  duration          Int? // in seconds
+  questionsAnswered Int  @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questions InterviewQuestion[]
+  feedback  InterviewFeedback?
+}
+
+model InterviewQuestion {
+  id          String @id @default(cuid())
+  interviewId String
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  
+  questionText String
+  answerText   String?
+  questionScore Int?
+  timeSpent    Int? // in seconds
+  
+  order       Int
+  createdAt   DateTime @default(now())
+}
+
+model InterviewFeedback {
+  id          String @id @default(cuid())
+  interviewId String @unique
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  
+  strengths       String[]
+  weaknesses      String[]
+  improvements    String[]
+  emotionTimeline Json? // Storing emotion data as JSON
+  
+  createdAt DateTime @default(now())
+}
+
+model Resume {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  fileName     String
+  fileUrl      String
+  fileSize     Int
+  targetRole   String?
+  
+  // Analysis Results
+  strengths    String[]
+  weaknesses   String[]
+  improvements String[]
+  matchScore   Int?
+  
+  analyzed     Boolean  @default(false)
+  analyzedAt   DateTime?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

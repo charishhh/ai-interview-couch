@@ -1,0 +1,257 @@
+// Prisma Schema for AI Resume Builder
+// Alternative to SQLAlchemy for users who prefer Prisma
+// Database: PostgreSQL 15+
+
+generator client {
+  provider = "prisma-client-py"
+  interface = "asyncio"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// Users & Authentication
+// ========================================
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  fullName     String?   @map("full_name") @db.VarChar(255)
+  role         String    @default("user") @db.VarChar(50) // user, admin
+  isActive     Boolean   @default(true) @map("is_active")
+  profileData  Json?     @map("profile_data") @db.JsonB
+  
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  
+  // Relationships
+  interviews   Interview[]
+  resumes      Resume[]
+  admin        Admin?
+  
+  @@index([email])
+  @@map("users")
+}
+
+model Admin {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @unique @map("user_id")
+  role        String    @default("admin") @db.VarChar(50) // admin, super_admin, moderator
+  permissions Json?     @db.JsonB
+  lastLoginAt DateTime? @map("last_login_at") @db.Timestamp(6)
+  
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  
+  // Relationships
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("admin")
+}
+
+// ========================================
+// Interviews & Questions
+// ========================================
+
+model Interview {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @map("user_id")
+  title           String    @db.VarChar(255)
+  description     String?   @db.Text
+  status          String    @default("pending") @db.VarChar(50) // pending, in_progress, completed, cancelled
+  jobPosition     String?   @map("job_position") @db.VarChar(255)
+  difficulty      String    @default("medium") @db.VarChar(50) // easy, medium, hard
+  totalQuestions  Int       @default(0) @map("total_questions")
+  completedCount  Int       @default(0) @map("completed_questions")
+  durationMinutes Int?      @map("duration_minutes")
+  settings        Json?     @db.JsonB
+  
+  startedAt       DateTime? @map("started_at") @db.Timestamp(6)
+  completedAt     DateTime? @map("completed_at") @db.Timestamp(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  
+  // Scoring
+  overallScore         Decimal? @map("overall_score") @db.Decimal(5, 2)
+  technicalScore       Decimal? @map("technical_score") @db.Decimal(5, 2)
+  communicationScore   Decimal? @map("communication_score") @db.Decimal(5, 2)
+  confidenceScore      Decimal? @map("confidence_score") @db.Decimal(5, 2)
+  
+  // AI Feedback
+  aiFeedback           String?  @map("ai_feedback") @db.Text
+  strengths            Json?    @db.JsonB
+  weaknesses           Json?    @db.JsonB
+  
+  // Relationships
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionResults  QuestionResult[]
+  analysisScores   AnalysisScore[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("interviews")
+}
+
+model InterviewQuestion {
+  id                Int       @id @default(autoincrement())
+  questionText      String    @map("question_text") @db.Text
+  questionType      String    @map("question_type") @db.VarChar(50) // technical, behavioral, situational, coding, system_design
+  category          String    @db.VarChar(100)
+  subcategory       String?   @db.VarChar(100)
+  
+  difficultyLevel   String    @default("medium") @map("difficulty_level") @db.VarChar(50) // easy, medium, hard
+  expectedAnswer    String?   @map("expected_answer") @db.Text
+  answerKeywords    Json?     @map("answer_keywords") @db.JsonB
+  
+  maxScore          Decimal?  @default(100.00) @map("max_score") @db.Decimal(5, 2)
+  timeLimitSeconds  Int?      @default(180) @map("time_limit_seconds")
+  
+  isActive          Boolean   @default(true) @map("is_active")
+  usageCount        Int       @default(0) @map("usage_count")
+  tags              Json?     @db.JsonB
+  
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  
+  // Relationships
+  questionResults   QuestionResult[]
+  
+  @@index([category])
+  @@index([difficultyLevel])
+  @@index([isActive])
+  @@map("interview_questions")
+}
+
+model QuestionResult {
+  id                      Int       @id @default(autoincrement())
+  interviewId             Int       @map("interview_id")
+  questionId              Int?      @map("question_id")
+  questionNumber          Int       @map("question_number")
+  questionText            String    @map("question_text") @db.Text
+  questionType            String    @map("question_type") @db.VarChar(50)
+  
+  userAnswerText          String?   @map("user_answer_text") @db.Text
+  audioFilePath           String?   @map("audio_file_path") @db.VarChar(500)
+  videoFilePath           String?   @map("video_file_path") @db.VarChar(500)
+  transcription           String?   @db.Text
+  transcriptionConfidence Decimal?  @map("transcription_confidence") @db.Decimal(5, 2)
+  
+  aiEvaluation            String?   @map("ai_evaluation") @db.Text
+  expectedAnswer          String?   @map("expected_answer") @db.Text
+  
+  // Scoring
+  score                   Decimal?  @db.Decimal(5, 2)
+  relevanceScore          Decimal?  @map("relevance_score") @db.Decimal(5, 2)
+  completenessScore       Decimal?  @map("completeness_score") @db.Decimal(5, 2)
+  clarityScore            Decimal?  @map("clarity_score") @db.Decimal(5, 2)
+  technicalAccuracyScore  Decimal?  @map("technical_accuracy_score") @db.Decimal(5, 2)
+  
+  // Sentiment & Keywords
+  sentiment               String?   @db.VarChar(50) // positive, neutral, negative, mixed
+  confidenceLevel         Decimal?  @map("confidence_level") @db.Decimal(5, 2)
+  emotionDetected         String?   @map("emotion_detected") @db.VarChar(50)
+  keywordsMatched         Json?     @map("keywords_matched") @db.JsonB
+  keywordsMissed          Json?     @map("keywords_missed") @db.JsonB
+  
+  // Timing
+  timeTakenSeconds        Int?      @map("time_taken_seconds")
+  answeredAt              DateTime? @map("answered_at") @db.Timestamp(6)
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  
+  // Relationships
+  interview               Interview          @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  question                InterviewQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  analysis                AnalysisScore?
+  
+  @@index([interviewId])
+  @@index([questionId])
+  @@map("question_results")
+}
+
+model AnalysisScore {
+  id                   Int       @id @default(autoincrement())
+  questionResultId     Int       @unique @map("question_result_id")
+  interviewId          Int       @map("interview_id")
+  
+  // Communication Metrics
+  fluencyScore         Decimal?  @map("fluency_score") @db.Decimal(5, 2)
+  grammarScore         Decimal?  @map("grammar_score") @db.Decimal(5, 2)
+  vocabularyScore      Decimal?  @map("vocabulary_score") @db.Decimal(5, 2)
+  pronunciationScore   Decimal?  @map("pronunciation_score") @db.Decimal(5, 2)
+  
+  // Content Metrics
+  depthScore           Decimal?  @map("depth_score") @db.Decimal(5, 2)
+  accuracyScore        Decimal?  @map("accuracy_score") @db.Decimal(5, 2)
+  creativityScore      Decimal?  @map("creativity_score") @db.Decimal(5, 2)
+  problemSolvingScore  Decimal?  @map("problem_solving_score") @db.Decimal(5, 2)
+  
+  // Behavioral Metrics
+  confidenceIndicator  Decimal?  @map("confidence_indicator") @db.Decimal(5, 2)
+  enthusiasmScore      Decimal?  @map("enthusiasm_score") @db.Decimal(5, 2)
+  professionalismScore Decimal?  @map("professionalism_score") @db.Decimal(5, 2)
+  
+  // Advanced Analysis
+  fillerWordsCount     Int       @default(0) @map("filler_words_count")
+  pauseAnalysis        Json?     @map("pause_analysis") @db.JsonB
+  speakingRateWpm      Int?      @map("speaking_rate_wpm")
+  toneAnalysis         Json?     @map("tone_analysis") @db.JsonB
+  
+  // AI Model Info
+  aiModelUsed          String?   @map("ai_model_used") @db.VarChar(100)
+  analysisVersion      String?   @map("analysis_version") @db.VarChar(50)
+  processingTimeMs     Int?      @map("processing_time_ms")
+  
+  analyzedAt           DateTime  @default(now()) @map("analyzed_at") @db.Timestamp(6)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  
+  // Relationships
+  questionResult       QuestionResult @relation(fields: [questionResultId], references: [id], onDelete: Cascade)
+  interview            Interview      @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  
+  @@index([interviewId])
+  @@map("analysis_scores")
+}
+
+// ========================================
+// Resumes
+// ========================================
+
+model Resume {
+  id               Int       @id @default(autoincrement())
+  userId           Int       @map("user_id")
+  fileName         String    @map("file_name") @db.VarChar(255)
+  filePath         String    @map("file_path") @db.VarChar(500)
+  fileType         String    @map("file_type") @db.VarChar(50)
+  fileSize         Int       @map("file_size")
+  
+  extractedText    String?   @map("extracted_text") @db.Text
+  parsedData       Json?     @map("parsed_data") @db.JsonB
+  
+  // AI Analysis
+  aiSummary        String?   @map("ai_summary") @db.Text
+  skillAnalysis    Json?     @map("skill_analysis") @db.JsonB
+  experienceYears  Decimal?  @map("experience_years") @db.Decimal(4, 1)
+  
+  // Scoring
+  resumeScore      Decimal?  @map("resume_score") @db.Decimal(5, 2)
+  completenessScore Decimal? @map("completeness_score") @db.Decimal(5, 2)
+  formatScore      Decimal?  @map("format_score") @db.Decimal(5, 2)
+  
+  uploadedAt       DateTime  @default(now()) @map("uploaded_at") @db.Timestamp(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  
+  // Relationships
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("resumes")
+}
