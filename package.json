@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "preinstall": "npx npm-force-resolutions"
+  },
+  "resolutions": {
+    "node-domexception": "npm:domexception@latest"
   },
   "dependencies": {
     "@clerk/nextjs": "^5.0.0",
