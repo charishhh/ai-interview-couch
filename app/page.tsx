@@ -144,7 +144,7 @@ export default function Home() {
                   JD
                 </div>
                 <div>
-                  <div className="font-semibold">Jane Doe</div>
+                  <div className="font-semibold">surya</div>
                   <div className="text-sm text-muted-foreground">Computer Science Student</div>
                 </div>
               </div>
@@ -162,7 +162,7 @@ export default function Home() {
                   MC
                 </div>
                 <div>
-                  <div className="font-semibold">Mark Chen</div>
+                  <div className="font-semibold">lohitha</div>
                   <div className="text-sm text-muted-foreground">MBA Attending Graduate</div>
                 </div>
               </div>
@@ -180,7 +180,7 @@ export default function Home() {
                   ER
                 </div>
                 <div>
-                  <div className="font-semibold">Emily Rodriguez</div>
+                  <div className="font-semibold">chandu</div>
                   <div className="text-sm text-muted-foreground">UX Design Bootcamp</div>
                 </div>
               </div>
