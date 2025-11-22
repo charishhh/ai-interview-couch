@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Code, MessageSquare, Briefcase, Phone, Edit, FileText, Sparkles } from "lucide-react";
+import { Code, MessageSquare, Briefcase, Phone, Edit, FileText, Sparkles, Upload, X } from "lucide-react";
 import Link from "next/link";
+import { useDropzone } from "react-dropzone";
 
 const interviewTypes = [
   {
@@ -52,6 +53,8 @@ export default function InterviewPage() {
   const [resumeText, setResumeText] = useState("");
   const [targetRole, setTargetRole] = useState("");
   const [selectedType, setSelectedType] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   useEffect(() => {
     // Load saved resume from localStorage
@@ -60,6 +63,38 @@ export default function InterviewPage() {
       setResumeText(savedResume);
     }
   }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'text/plain': ['.txt'],
+    },
+    maxFiles: 1,
+    onDrop: async (acceptedFiles) => {
+      if (acceptedFiles.length > 0) {
+        const file = acceptedFiles[0];
+        setUploadedFile(file);
+        setIsProcessing(true);
+        
+        // Extract text from file
+        const text = await extractTextFromFile(file);
+        setResumeText(text);
+        setIsProcessing(false);
+      }
+    },
+  });
+
+  const extractTextFromFile = async (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        resolve(text);
+      };
+      reader.readAsText(file);
+    });
+  };
 
   const handleStartWithResume = (typeId: string) => {
     setSelectedType(typeId);
@@ -76,6 +111,8 @@ export default function InterviewPage() {
   };
 
   if (showResumeInput) {
+    const selectedTypeInfo = interviewTypes.find(t => t.id === selectedType);
+    
     return (
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
@@ -86,9 +123,16 @@ export default function InterviewPage() {
           >
             ← Back to Interview Types
           </Button>
-          <h1 className="text-3xl font-bold">Resume-Based Interview</h1>
+          <div className="flex items-center gap-3 mb-2">
+            {selectedTypeInfo && (
+              <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${selectedTypeInfo.color} flex items-center justify-center`}>
+                <selectedTypeInfo.icon className="w-5 h-5 text-white" />
+              </div>
+            )}
+            <h1 className="text-3xl font-bold">Upload Your Resume</h1>
+          </div>
           <p className="text-muted-foreground">
-            AI will generate personalized questions based on your resume and target role
+            AI will generate personalized {selectedTypeInfo?.title || 'interview'} questions based on your resume and experience
           </p>
         </div>
 
@@ -117,14 +161,73 @@ export default function InterviewPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="resume">Your Resume (Optional)</Label>
+              <Label htmlFor="resume">Your Resume</Label>
+              
+              {/* File Upload Zone */}
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                  isDragActive
+                    ? "border-primary bg-primary/5"
+                    : "border-gray-300 dark:border-gray-700 hover:border-primary"
+                }`}
+              >
+                <input {...getInputProps()} />
+                {uploadedFile ? (
+                  <div className="flex flex-col items-center space-y-3">
+                    <FileText className="w-12 h-12 text-primary" />
+                    <div>
+                      <p className="font-semibold">{uploadedFile.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {(uploadedFile.size / 1024).toFixed(2)} KB
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUploadedFile(null);
+                        setResumeText("");
+                      }}
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Remove File
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center space-y-3">
+                    <Upload className="w-12 h-12 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold">
+                        {isDragActive ? "Drop your file here" : "Upload Resume or Drag & Drop"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        PDF, DOCX, or TXT (max 5MB)
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Or text input */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Or paste text</span>
+                </div>
+              </div>
+
               <Textarea
                 id="resume"
-                placeholder="Paste your resume here or key highlights from your experience..."
+                placeholder="Paste your resume text here..."
                 value={resumeText}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setResumeText(e.target.value)}
-                rows={12}
+                rows={8}
                 className="font-mono text-sm"
+                disabled={isProcessing}
               />
               <p className="text-xs text-muted-foreground">
                 AI will analyze your experience and generate tailored questions
@@ -136,6 +239,7 @@ export default function InterviewPage() {
                 onClick={saveResumeAndStart}
                 className="flex-1"
                 size="lg"
+                disabled={!resumeText.trim() && !uploadedFile}
               >
                 <Sparkles className="w-4 h-4 mr-2" />
                 Generate AI Questions & Start
@@ -151,6 +255,12 @@ export default function InterviewPage() {
                 Skip & Use Default Questions
               </Button>
             </div>
+            
+            {!resumeText.trim() && !uploadedFile && (
+              <p className="text-sm text-amber-600 dark:text-amber-400 text-center">
+                Please upload a resume or paste your resume text to generate AI questions
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -159,12 +269,65 @@ export default function InterviewPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Choose Your Practice Session</h1>
-        <p className="text-muted-foreground">
-          Select a practice session to get started with your AI-powered mock interview.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Choose Your Practice Session</h1>
+          <p className="text-muted-foreground">
+            Select a practice session to get started with your AI-powered mock interview.
+          </p>
+        </div>
+        <Button 
+          size="lg"
+          onClick={() => {
+            setSelectedType("technical"); // Default to technical
+            setShowResumeInput(true);
+          }}
+          className="hidden md:flex"
+        >
+          <Upload className="w-4 h-4 mr-2" />
+          Upload Resume
+        </Button>
       </div>
+
+      {/* Mobile Upload Button */}
+      <Button 
+        size="lg"
+        onClick={() => {
+          setSelectedType("technical");
+          setShowResumeInput(true);
+        }}
+        className="w-full md:hidden"
+      >
+        <Upload className="w-4 h-4 mr-2" />
+        Upload Resume for AI Questions
+      </Button>
+
+      {/* Call-to-action card */}
+      <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-6 h-6 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg mb-1">Get Personalized Questions</h3>
+              <p className="text-muted-foreground text-sm mb-4">
+                Upload your resume and our AI will generate custom interview questions based on your experience, skills, and target role.
+              </p>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setSelectedType("technical");
+                  setShowResumeInput(true);
+                }}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload & Get Started
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {interviewTypes.map((type) => (
