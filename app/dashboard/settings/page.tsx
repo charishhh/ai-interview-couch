@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,12 +12,39 @@ import { Moon, Sun } from "lucide-react";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [firstName, setFirstName] = useState("Alex");
   const [lastName, setLastName] = useState("Johnson");
   const [role, setRole] = useState("Student");
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [autoSave, setAutoSave] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    // Load saved preferences
+    const savedProfile = localStorage.getItem("userProfile");
+    if (savedProfile) {
+      try {
+        const profile = JSON.parse(savedProfile);
+        setFirstName(profile.firstName || "Alex");
+        setLastName(profile.lastName || "Johnson");
+        setRole(profile.role || "Student");
+      } catch (e) {
+        console.error("Error loading profile:", e);
+      }
+    }
+    
+    const savedEmailPref = localStorage.getItem("emailNotifications");
+    if (savedEmailPref !== null) {
+      setEmailNotifications(savedEmailPref === "true");
+    }
+    
+    const savedAutoSave = localStorage.getItem("autoSave");
+    if (savedAutoSave !== null) {
+      setAutoSave(savedAutoSave === "true");
+    }
+  }, []);
 
   const handleSaveChanges = () => {
     setIsSaving(true);
@@ -187,14 +214,21 @@ export default function SettingsPage() {
                 Switch between light and dark theme
               </p>
             </div>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            >
-              {theme === "dark" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-              <span className="ml-2">Toggle</span>
-            </Button>
+            {mounted && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              >
+                {theme === "dark" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                <span className="ml-2">Toggle</span>
+              </Button>
+            )}
+            {!mounted && (
+              <Button variant="outline" size="sm" disabled>
+                <span className="ml-2">Loading...</span>
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

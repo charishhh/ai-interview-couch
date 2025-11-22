@@ -13,7 +13,33 @@ export async function POST(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { resumeText, targetRole } = await req.json();
+    let resumeText = "";
+    let targetRole = "";
+
+    // Check if it's FormData or JSON
+    const contentType = req.headers.get("content-type");
+    
+    if (contentType?.includes("multipart/form-data")) {
+      // Handle FormData with file upload
+      const formData = await req.formData();
+      const file = formData.get("resume") as File;
+      targetRole = formData.get("jobRole") as string || "Software Engineer";
+      
+      if (file) {
+        resumeText = await file.text();
+      }
+    } else {
+      // Handle JSON request
+      const body = await req.json();
+      resumeText = body.resumeText || "";
+      targetRole = body.targetRole || body.jobRole || "Software Engineer";
+    }
+
+    if (!resumeText) {
+      return NextResponse.json({
+        error: "No resume text provided"
+      }, { status: 400 });
+    }
 
     const prompt = `You are an expert resume analyzer and career coach. Analyze the following resume for a ${targetRole} position.
 
@@ -30,7 +56,7 @@ Provide detailed analysis including:
 Format your response as JSON with keys: strengths (array), weaknesses (array), improvements (array), matchScore (number), missingKeywords (array).`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
     });
@@ -40,6 +66,9 @@ Format your response as JSON with keys: strengths (array), weaknesses (array), i
     return NextResponse.json(analysis);
   } catch (error) {
     console.error("[ANALYZE_RESUME_ERROR]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return NextResponse.json({
+      error: "Failed to analyze resume",
+      details: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 });
   }
 }
