@@ -55,6 +55,9 @@ export default function SettingsPage() {
       role,
     }));
     
+    // Dispatch event to notify other components
+    window.dispatchEvent(new Event("profileUpdated"));
+    
     setTimeout(() => {
       setIsSaving(false);
       alert("Profile updated successfully!");

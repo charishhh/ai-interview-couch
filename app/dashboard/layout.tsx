@@ -12,7 +12,7 @@ import {
   Menu,
   X
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -30,6 +30,69 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState({
+    firstName: "Alex",
+    lastName: "Johnson",
+    role: "Student"
+  });
+
+  useEffect(() => {
+    // Load user profile from localStorage
+    const savedProfile = localStorage.getItem("userProfile");
+    if (savedProfile) {
+      try {
+        const profile = JSON.parse(savedProfile);
+        setUserProfile({
+          firstName: profile.firstName || "Alex",
+          lastName: profile.lastName || "Johnson",
+          role: profile.role || "Student"
+        });
+      } catch (e) {
+        console.error("Error loading profile:", e);
+      }
+    }
+
+    // Listen for storage changes to update profile when settings change
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "userProfile" && e.newValue) {
+        try {
+          const profile = JSON.parse(e.newValue);
+          setUserProfile({
+            firstName: profile.firstName || "Alex",
+            lastName: profile.lastName || "Johnson",
+            role: profile.role || "Student"
+          });
+        } catch (err) {
+          console.error("Error parsing profile:", err);
+        }
+      }
+    };
+
+    // Also listen for custom events (for same-tab updates)
+    const handleProfileUpdate = () => {
+      const savedProfile = localStorage.getItem("userProfile");
+      if (savedProfile) {
+        try {
+          const profile = JSON.parse(savedProfile);
+          setUserProfile({
+            firstName: profile.firstName || "Alex",
+            lastName: profile.lastName || "Johnson",
+            role: profile.role || "Student"
+          });
+        } catch (e) {
+          console.error("Error loading profile:", e);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("profileUpdated", handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("profileUpdated", handleProfileUpdate);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -63,9 +126,16 @@ export default function DashboardLayout({
                 </ul>
               </li>
               <li className="mt-auto">
-                <div className="flex items-center gap-x-4 p-2">
+                <div className="flex items-center gap-x-4 p-2 border-t pt-4">
                   <UserButton afterSignOutUrl="/" />
-                  <span className="text-sm font-semibold">Alex Johnson</span>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {userProfile.firstName} {userProfile.lastName}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {userProfile.role}
+                    </span>
+                  </div>
                 </div>
               </li>
             </ul>
