@@ -130,6 +130,117 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section id="pricing" className="py-20 bg-gradient-to-b from-white to-gray-50 dark:from-background dark:to-gray-900">
+        <div className="container mx-auto px-4">
+          <h2 className="text-4xl font-bold text-center mb-4">Simple, Transparent Pricing</h2>
+          <p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
+            Choose the plan that works best for you. All plans include AI-powered feedback.
+          </p>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Free Plan */}
+            <div className="bg-card border rounded-2xl p-8 hover:shadow-lg transition-shadow">
+              <h3 className="text-2xl font-bold mb-2">Free</h3>
+              <div className="text-4xl font-bold mb-4">$0<span className="text-lg text-muted-foreground">/month</span></div>
+              <p className="text-muted-foreground mb-6">Perfect for getting started</p>
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mr-2 mt-0.5" />
+                  <span>5 practice interviews/month</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mr-2 mt-0.5" />
+                  <span>Basic AI feedback</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mr-2 mt-0.5" />
+                  <span>Resume analysis</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mr-2 mt-0.5" />
+                  <span>Progress tracking</span>
+                </li>
+              </ul>
+              <Link href="/sign-up">
+                <Button variant="outline" className="w-full">Get Started</Button>
+              </Link>
+            </div>
+
+            {/* Pro Plan */}
+            <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-2xl p-8 shadow-2xl transform scale-105 relative">
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-gray-900 px-4 py-1 rounded-full text-sm font-semibold">
+                Most Popular
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Pro</h3>
+              <div className="text-4xl font-bold mb-4">$19<span className="text-lg opacity-90">/month</span></div>
+              <p className="opacity-90 mb-6">For serious job seekers</p>
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 mr-2 mt-0.5" />
+                  <span>Unlimited practice interviews</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 mr-2 mt-0.5" />
+                  <span>Advanced AI feedback</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 mr-2 mt-0.5" />
+                  <span>Detailed sentiment analysis</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 mr-2 mt-0.5" />
+                  <span>Custom question generation</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 mr-2 mt-0.5" />
+                  <span>Interview history & analytics</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 mr-2 mt-0.5" />
+                  <span>Priority support</span>
+                </li>
+              </ul>
+              <Link href="/sign-up">
+                <Button className="w-full bg-white text-blue-600 hover:bg-gray-100">Start Pro Trial</Button>
+              </Link>
+            </div>
+
+            {/* Enterprise Plan */}
+            <div className="bg-card border rounded-2xl p-8 hover:shadow-lg transition-shadow">
+              <h3 className="text-2xl font-bold mb-2">Enterprise</h3>
+              <div className="text-4xl font-bold mb-4">Custom</div>
+              <p className="text-muted-foreground mb-6">For teams and organizations</p>
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mr-2 mt-0.5" />
+                  <span>Everything in Pro</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mr-2 mt-0.5" />
+                  <span>Team management</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mr-2 mt-0.5" />
+                  <span>Custom integrations</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mr-2 mt-0.5" />
+                  <span>Dedicated support</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mr-2 mt-0.5" />
+                  <span>SLA guarantee</span>
+                </li>
+              </ul>
+              <Link href="#">
+                <Button variant="outline" className="w-full">Contact Sales</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Testimonials Section */}
       <section id="testimonials" className="py-20 bg-gray-50 dark:bg-gray-900">
         <div className="container mx-auto px-4">
@@ -215,7 +326,7 @@ export default function Home() {
           <div className="flex flex-col md:flex-row items-center justify-between">
             <div className="flex items-center space-x-2 mb-4 md:mb-0">
               <Mic className="w-5 h-5 text-primary" />
-              <span className="font-semibold">© 2024 AI Interview Coach. All rights reserved.</span>
+              <span className="font-semibold">© 2025 AI Interview Coach. All rights reserved.</span>
             </div>
             <div className="flex items-center space-x-6 text-sm text-muted-foreground">
               <Link href="#" className="hover:text-primary">About</Link>
