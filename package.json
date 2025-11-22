@@ -53,6 +53,7 @@
   "overrides": {
     "eslint": "^9",
     "glob": "^10",
-    "rimraf": "^5"
+    "rimraf": "^5",
+    "node-domexception": "npm:domexception@^4.0.0"
   }
 }
