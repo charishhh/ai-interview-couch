@@ -1,9 +1,3 @@
--- ============================================================================
--- ALEMBIC MIGRATION SCRIPT
--- Initial database schema creation
--- Generated for AI Interview Platform
--- ============================================================================
-
 """Initial database schema
 
 Revision ID: 001_initial_schema
