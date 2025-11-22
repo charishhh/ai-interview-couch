@@ -3,12 +3,6 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
 // Multiple question sets for variety - randomly selected
 const technicalQuestionSets = [
   [
@@ -285,6 +279,10 @@ Example format: {"questions": ["Detailed question 1 about [specific resume item]
 
     // Try OpenAI first with higher temperature for more variety
     try {
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+      
       const completion = await openai.chat.completions.create({
         model: "gpt-4-turbo-preview",
         messages: [{ role: "user", content: prompt }],
@@ -300,6 +298,7 @@ Example format: {"questions": ["Detailed question 1 about [specific resume item]
       console.log("[GENERATE_QUESTIONS] OpenAI failed, trying Gemini AI:", openaiError.message);
       
       try {
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
         const model = genAI.getGenerativeModel({ 
           model: "gemini-pro",
           generationConfig: {

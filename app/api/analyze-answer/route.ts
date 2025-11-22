@@ -3,12 +3,6 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
 export async function POST(req: Request) {
   try {
     const user = await currentUser();
@@ -55,6 +49,10 @@ Format as JSON with camelCase keys.`;
 
     // Try OpenAI first
     try {
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+      
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
@@ -69,6 +67,7 @@ Format as JSON with camelCase keys.`;
       console.log("[ANALYZE_ANSWER] OpenAI failed, trying Gemini AI:", openaiError.message);
       
       try {
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
         const model = genAI.getGenerativeModel({ model: "gemini-pro" });
         
         const geminiPrompt = `${prompt}\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no code blocks, no additional text.`;

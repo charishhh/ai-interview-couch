@@ -3,12 +3,6 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
 export async function POST(req: Request) {
   try {
     const user = await currentUser();
@@ -61,6 +55,10 @@ Format your response as JSON with keys: strengths (array), weaknesses (array), i
     // Try to use OpenAI API first
     let analysis;
     try {
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+      
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
@@ -69,59 +67,40 @@ Format your response as JSON with keys: strengths (array), weaknesses (array), i
 
       analysis = JSON.parse(completion.choices[0].message.content || "{}");
     } catch (apiError: any) {
-      // If OpenAI fails, try Gemini AI as backup
-      console.log("[ANALYZE_RESUME] OpenAI failed, trying Gemini AI:", apiError.message);
+      // If API fails (quota exceeded, etc.), return mock analysis
+      console.log("[ANALYZE_RESUME] Using mock data due to API error:", apiError.message);
       
-      try {
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-        
-        const geminiPrompt = `${prompt}\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no code blocks, no additional text.`;
-        
-        const result = await model.generateContent(geminiPrompt);
-        const response = await result.response;
-        const text = response.text();
-        
-        // Clean the response - remove markdown code blocks if present
-        const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        analysis = JSON.parse(cleanText);
-        
-        console.log("[ANALYZE_RESUME] Successfully used Gemini AI as backup");
-      } catch (geminiError: any) {
-        // If both APIs fail, return mock analysis
-        console.log("[ANALYZE_RESUME] Both APIs failed, using mock data:", geminiError.message);
-        
-        analysis = {
-          strengths: [
-            "Strong technical skills and relevant experience in the field",
-            "Clear demonstration of problem-solving abilities and achievements",
-            "Well-structured resume with quantifiable results",
-            "Good balance of technical and soft skills",
-            "Relevant projects and hands-on experience"
-          ],
-          weaknesses: [
-            "Could benefit from more specific metrics and quantifiable achievements",
-            "Missing some industry-specific keywords for " + targetRole,
-            "Professional summary could be more impactful",
-            "Some sections could be more concise"
-          ],
-          improvements: [
-            `Add more keywords specific to ${targetRole} positions (e.g., relevant technologies, methodologies)`,
-            "Quantify achievements with specific numbers and percentages",
-            "Include a strong professional summary highlighting your unique value proposition",
-            "Add relevant certifications or training programs if applicable",
-            "Ensure consistent formatting throughout the document",
-            "Consider adding links to portfolio, GitHub, or LinkedIn"
-          ],
-          matchScore: 78,
-          missingKeywords: [
-            "Relevant technologies for " + targetRole,
-            "Industry-standard tools and frameworks",
-            "Soft skills like leadership, communication",
-            "Agile/Scrum methodologies",
-            "Cloud platforms (AWS, Azure, GCP)"
-          ]
-        };
-      }
+      analysis = {
+        strengths: [
+          "Strong technical skills and relevant experience in the field",
+          "Clear demonstration of problem-solving abilities and achievements",
+          "Well-structured resume with quantifiable results",
+          "Good balance of technical and soft skills",
+          "Relevant projects and hands-on experience"
+        ],
+        weaknesses: [
+          "Could benefit from more specific metrics and quantifiable achievements",
+          "Missing some industry-specific keywords for " + targetRole,
+          "Professional summary could be more impactful",
+          "Some sections could be more concise"
+        ],
+        improvements: [
+          `Add more keywords specific to ${targetRole} positions (e.g., relevant technologies, methodologies)`,
+          "Quantify achievements with specific numbers and percentages",
+          "Include a strong professional summary highlighting your unique value proposition",
+          "Add relevant certifications or training programs if applicable",
+          "Ensure consistent formatting throughout the document",
+          "Consider adding links to portfolio, GitHub, or LinkedIn"
+        ],
+        matchScore: 78,
+        missingKeywords: [
+          "Relevant technologies for " + targetRole,
+          "Industry-standard tools and frameworks",
+          "Soft skills like leadership, communication",
+          "Agile/Scrum methodologies",
+          "Cloud platforms (AWS, Azure, GCP)"
+        ]
+      };
     }
 
     return NextResponse.json(analysis);
