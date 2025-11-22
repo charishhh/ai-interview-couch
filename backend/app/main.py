@@ -15,6 +15,7 @@ from app.config import settings
 from app.db import init_db, close_db
 from app.utils.file_storage import ensure_upload_directory
 from app.routes import auth_router, interview_router, dashboard_router
+from app.routes.emotion import router as emotion_router
 
 
 # ============================================================================
@@ -184,6 +185,9 @@ app.include_router(interview_router, prefix="/api")
 
 # Dashboard routes (/api/dashboard/...)
 app.include_router(dashboard_router, prefix="/api")
+
+# Emotion detection routes (/api/emotion/...)
+app.include_router(emotion_router, prefix="/api")
 
 logger.info("✅ All routers registered")
 

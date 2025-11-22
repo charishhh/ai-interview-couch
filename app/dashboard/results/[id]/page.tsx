@@ -86,7 +86,29 @@ export default function ResultsPage() {
     ? Math.round(scores.reduce((sum: number, s: any) => sum + (s.overallScore || 0), 0) / scores.length)
     : interviewData.overallScore || 0;
 
-  const emotionData = {
+  // Prepare emotion timeline data
+  const emotionTimeline = interviewData.emotionAnalysis?.emotionTimeline || [];
+  const hasEmotionData = emotionTimeline.length > 0;
+  
+  const emotionChartData = hasEmotionData ? {
+    labels: emotionTimeline.map((e: any, i: number) => `${Math.floor(e.timestamp / 60)}:${(e.timestamp % 60).toString().padStart(2, '0')}`),
+    datasets: [
+      {
+        label: "Sentiment Score",
+        data: emotionTimeline.map((e: any) => e.sentiment * 100),
+        borderColor: "rgb(34, 197, 94)",
+        backgroundColor: "rgba(34, 197, 94, 0.1)",
+        tension: 0.4,
+      },
+      {
+        label: "Confidence",
+        data: emotionTimeline.map((e: any) => e.confidence * 100),
+        borderColor: "rgb(59, 130, 246)",
+        backgroundColor: "rgba(59, 130, 246, 0.1)",
+        tension: 0.4,
+      },
+    ],
+  } : {
     labels: ["Start", "1 min", "2 min", "3 min", "End"],
     datasets: [
       {
@@ -286,17 +308,53 @@ export default function ResultsPage() {
             <CardDescription>Your emotional state during the interview</CardDescription>
           </CardHeader>
           <CardContent>
-            <Line
-              data={emotionData}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: {
-                    position: "bottom" as const,
-                  },
-                },
-              }}
-            />
+            {hasEmotionData ? (
+              <>
+                <Line
+                  data={emotionChartData}
+                  options={{
+                    responsive: true,
+                    plugins: {
+                      legend: {
+                        position: "bottom" as const,
+                      },
+                      title: {
+                        display: true,
+                        text: 'Real-time Emotion Detection Results'
+                      }
+                    },
+                    scales: {
+                      y: {
+                        min: -100,
+                        max: 100,
+                        title: {
+                          display: true,
+                          text: 'Score (%)'
+                        }
+                      }
+                    }
+                  }}
+                />
+                <div className="mt-4 p-4 bg-muted rounded-lg">
+                  <p className="text-sm font-semibold mb-2">Emotion Summary:</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Dominant Emotion:</span>
+                      <span className="ml-2 capitalize font-medium">{interviewData.emotionAnalysis?.dominantEmotion}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Avg Sentiment:</span>
+                      <span className="ml-2 font-medium">{((interviewData.emotionAnalysis?.averageSentiment || 0) * 100).toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No emotion data available for this interview.</p>
+                <p className="text-sm mt-2">Enable camera during interview for emotion analysis.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

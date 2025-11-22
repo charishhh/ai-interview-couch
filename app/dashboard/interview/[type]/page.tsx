@@ -30,11 +30,19 @@ export default function InterviewSessionPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [interviewStarted, setInterviewStarted] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  
+  // Emotion detection states
+  const [emotionData, setEmotionData] = useState<any[]>([]);
+  const [currentEmotion, setCurrentEmotion] = useState<string>("neutral");
+  const [videoEnabled, setVideoEnabled] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<any>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const emotionIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load questions
   useEffect(() => {
@@ -115,6 +123,20 @@ export default function InterviewSessionPage() {
     };
   }, [interviewStarted, isLoading]);
 
+  // Initialize video for emotion detection
+  useEffect(() => {
+    return () => {
+      // Cleanup video stream on unmount
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+      if (emotionIntervalRef.current) {
+        clearInterval(emotionIntervalRef.current);
+      }
+    };
+  }, []);
+
   // Initialize Speech Recognition
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -165,6 +187,120 @@ export default function InterviewSessionPage() {
     }
   };
 
+  const startVideoCapture = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: 640, height: 480 },
+        audio: false 
+      });
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+        setVideoEnabled(true);
+        
+        // Start emotion detection every 2 seconds
+        emotionIntervalRef.current = setInterval(() => {
+          captureAndAnalyzeEmotion();
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Error starting video capture:", error);
+      // Video is optional, continue without it
+      setVideoEnabled(false);
+    }
+  };
+
+  const stopVideoCapture = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+      setVideoEnabled(false);
+    }
+    
+    if (emotionIntervalRef.current) {
+      clearInterval(emotionIntervalRef.current);
+      emotionIntervalRef.current = null;
+    }
+  };
+
+  const captureAndAnalyzeEmotion = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+    
+    if (!context) return;
+    
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    // Draw current video frame to canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Convert canvas to base64 image
+    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+    
+    try {
+      // Send to emotion detection API
+      const response = await fetch('/api/analyze-emotion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: imageData,
+          timestamp: timer
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        
+        if (result.success && result.faces.length > 0) {
+          const face = result.faces[0];
+          setCurrentEmotion(face.emotion);
+          
+          // Store emotion data for timeline
+          setEmotionData(prev => [...prev, {
+            timestamp: timer,
+            emotion: face.emotion,
+            confidence: face.confidence,
+            sentiment: getSentimentScore(face.emotion)
+          }]);
+        }
+      }
+    } catch (error) {
+      console.error('Error analyzing emotion:', error);
+      // Continue interview even if emotion detection fails
+    }
+  };
+
+  const getSentimentScore = (emotion: string): number => {
+    const sentimentMap: { [key: string]: number } = {
+      'happy': 1.0,
+      'surprise': 0.5,
+      'neutral': 0.0,
+      'fear': -0.3,
+      'sad': -0.6,
+      'angry': -0.8,
+      'disgust': -0.9
+    };
+    return sentimentMap[emotion] || 0.0;
+  };
+
+  const getDominantEmotion = (): string => {
+    if (emotionData.length === 0) return 'neutral';
+    
+    const emotionCounts: { [key: string]: number } = {};
+    emotionData.forEach(data => {
+      emotionCounts[data.emotion] = (emotionCounts[data.emotion] || 0) + 1;
+    });
+    
+    return Object.entries(emotionCounts).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+  };
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -186,6 +322,9 @@ export default function InterviewSessionPage() {
 
       mediaRecorder.start();
       setIsRecording(true);
+      
+      // Start video capture for emotion detection
+      startVideoCapture();
 
       // Start speech recognition
       if (recognitionRef.current) {
@@ -206,6 +345,9 @@ export default function InterviewSessionPage() {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
+
+    // Stop video capture
+    stopVideoCapture();
 
     setIsRecording(false);
   };
@@ -326,11 +468,21 @@ export default function InterviewSessionPage() {
   };
 
   const finishInterview = async () => {
+    // Stop video capture if still running
+    stopVideoCapture();
+    
     // Calculate overall scores
     const totalScore = answers.reduce((sum, ans) => {
       return sum + (ans.analysis?.overallScore || 0);
     }, 0);
     const averageScore = answers.length > 0 ? Math.round(totalScore / answers.length) : 0;
+
+    // Calculate emotion summary
+    const emotionSummary = emotionData.length > 0 ? {
+      dominantEmotion: getDominantEmotion(),
+      averageSentiment: emotionData.reduce((sum, e) => sum + e.sentiment, 0) / emotionData.length,
+      emotionTimeline: emotionData,
+    } : null;
 
     // Save interview results
     const interviewId = `interview_${Date.now()}`;
@@ -345,6 +497,7 @@ export default function InterviewSessionPage() {
         answers: answers,
         overallScore: averageScore,
         duration: timer,
+        emotionAnalysis: emotionSummary,
         completedAt: new Date().toISOString(),
       };
 
@@ -452,68 +605,246 @@ export default function InterviewSessionPage() {
         </CardHeader>
       </Card>
 
-      {/* Recording Controls */}
+      {/* Recording Controls with Video */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col items-center space-y-6">
-            {/* Microphone Button */}
-            <button
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={isAnalyzing}
-              className={`w-32 h-32 rounded-full flex items-center justify-center transition-all ${
-                isRecording
-                  ? "bg-red-500 hover:bg-red-600 animate-pulse"
-                  : "bg-primary hover:bg-primary/90"
-              } ${isAnalyzing ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              {isRecording ? (
-                <MicOff className="w-16 h-16 text-white" />
-              ) : (
-                <Mic className="w-16 h-16 text-white" />
-              )}
-            </button>
-
-            <p className="text-sm text-muted-foreground">
-              {isRecording ? "Recording... Click to stop" : "Click to start recording"}
-            </p>
-
-            {/* Transcription Display */}
-            {transcription && (
-              <div className="w-full p-4 bg-muted rounded-lg">
-                <p className="text-sm font-semibold mb-2">Your Response:</p>
-                <p className="text-sm">{transcription}</p>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 w-full">
-              <Button
-                variant="outline"
-                onClick={skipQuestion}
-                disabled={isAnalyzing}
-                className="flex-1"
-              >
-                <SkipForward className="w-4 h-4 mr-2" />
-                Skip Question
-              </Button>
-              <Button
-                onClick={analyzeAnswer}
-                disabled={isAnalyzing || !transcription.trim()}
-                className="flex-1"
-              >
-                {isAnalyzing ? (
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Left: Video Feed and Emotion */}
+            <div className="space-y-4">
+              <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                
+                {/* Emotion Indicator Overlay */}
+                {videoEnabled && isRecording && (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4 mr-2" />
-                    Submit Answer
+                    {/* Top-right: Emotion Badge */}
+                    <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-3 h-3 rounded-full animate-pulse ${
+                          currentEmotion === 'happy' ? 'bg-green-500' :
+                          currentEmotion === 'neutral' ? 'bg-blue-500' :
+                          currentEmotion === 'sad' ? 'bg-indigo-500' :
+                          currentEmotion === 'angry' ? 'bg-red-500' :
+                          currentEmotion === 'surprise' ? 'bg-yellow-500' :
+                          currentEmotion === 'fear' ? 'bg-purple-500' :
+                          currentEmotion === 'disgust' ? 'bg-orange-500' :
+                          'bg-gray-500'
+                        }`} />
+                        <div>
+                          <div className="text-xs opacity-75">Emotion</div>
+                          <div className="font-semibold capitalize text-sm">
+                            {currentEmotion === 'happy' ? '😊 Happy' :
+                             currentEmotion === 'neutral' ? '😐 Neutral' :
+                             currentEmotion === 'sad' ? '😢 Sad' :
+                             currentEmotion === 'angry' ? '😠 Angry' :
+                             currentEmotion === 'surprise' ? '😲 Surprise' :
+                             currentEmotion === 'fear' ? '😨 Fear' :
+                             currentEmotion === 'disgust' ? '🤢 Disgust' :
+                             '🎭 Detecting...'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom-left: Recording Indicator */}
+                    <div className="absolute bottom-4 left-4 bg-red-500/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 shadow-lg">
+                      <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                      <span>Recording</span>
+                    </div>
+
+                    {/* Bottom-right: Analysis Active */}
+                    <div className="absolute bottom-4 right-4 bg-primary/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs flex items-center gap-2 shadow-lg">
+                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>AI Analyzing</span>
+                    </div>
                   </>
                 )}
-              </Button>
+
+                {videoEnabled && !isRecording && (
+                  <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs">
+                    📹 Camera Ready
+                  </div>
+                )}
+                
+                {!videoEnabled && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white/70 p-6 text-center">
+                    <div className="text-4xl mb-3">📷</div>
+                    <p className="text-sm mb-2">Camera not available</p>
+                    <p className="text-xs opacity-75">Emotion detection will be disabled for this session</p>
+                  </div>
+                )}
+              </div>
+              <canvas ref={canvasRef} className="hidden" />
+              
+              {/* Emotion Stats Mini Panel */}
+              {videoEnabled && emotionData.length > 0 && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Emotions Captured:</span>
+                    <span className="font-semibold">{emotionData.length} frames</span>
+                  </div>
+                  {emotionData.length >= 3 && (
+                    <div className="mt-2 pt-2 border-t border-border/50">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Avg Sentiment:</span>
+                        <span className={`font-semibold ${
+                          (emotionData.reduce((sum, e) => sum + e.sentiment, 0) / emotionData.length) > 0.3 
+                            ? 'text-green-600' 
+                            : (emotionData.reduce((sum, e) => sum + e.sentiment, 0) / emotionData.length) < -0.3
+                            ? 'text-red-600'
+                            : 'text-blue-600'
+                        }`}>
+                          {((emotionData.reduce((sum, e) => sum + e.sentiment, 0) / emotionData.length) * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* Right: Microphone and Controls */}
+            <div className="flex flex-col items-center justify-center space-y-6">
+              {/* Emotion Timeline Preview */}
+              {emotionData.length > 0 && (
+                <div className="w-full max-w-xs p-4 bg-muted/50 rounded-lg border border-border/50">
+                  <div className="text-xs font-semibold text-muted-foreground mb-2">Emotion Timeline</div>
+                  <div className="flex items-end justify-between h-16 gap-1">
+                    {emotionData.slice(-10).map((data, idx) => {
+                      const height = Math.abs(data.sentiment * 100);
+                      const isPositive = data.sentiment > 0;
+                      return (
+                        <div key={idx} className="flex-1 flex flex-col items-center justify-end gap-1">
+                          <div 
+                            className={`w-full rounded-t transition-all ${
+                              isPositive ? 'bg-green-500' : 'bg-red-500'
+                            }`}
+                            style={{ height: `${height}%` }}
+                            title={`${data.emotion} (${(data.confidence * 100).toFixed(0)}%)`}
+                          />
+                          <div className="text-[10px] opacity-50">
+                            {idx === emotionData.slice(-10).length - 1 ? 'now' : ''}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-between text-[10px] text-muted-foreground mt-2">
+                    <span>😢 Negative</span>
+                    <span>😊 Positive</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Microphone Button */}
+              <button
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={isAnalyzing}
+                className={`w-32 h-32 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                  isRecording
+                    ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                    : "bg-primary hover:bg-primary/90"
+                } ${isAnalyzing ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                {isRecording ? (
+                  <MicOff className="w-16 h-16 text-white" />
+                ) : (
+                  <Mic className="w-16 h-16 text-white" />
+                )}
+              </button>
+
+              <p className="text-sm text-muted-foreground text-center">
+                {isRecording ? "Recording... Click to stop" : "Click to start recording"}
+              </p>
+
+              {/* Recording Tips */}
+              {!isRecording && (
+                <div className="w-full max-w-xs p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-1">💡 Tips</div>
+                  <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+                    <li>• Maintain good lighting</li>
+                    <li>• Look at the camera</li>
+                    <li>• Speak clearly and confidently</li>
+                  </ul>
+                </div>
+              )}
+
+              {/* Real-time Stats During Recording */}
+              {isRecording && emotionData.length > 0 && (
+                <div className="w-full max-w-xs p-3 bg-primary/5 rounded-lg border border-primary/20">
+                  <div className="text-xs font-semibold text-primary mb-2">📊 Live Stats</div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Duration:</span>
+                      <span className="font-semibold">{Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Current Mood:</span>
+                      <span className={`font-semibold capitalize ${
+                        currentEmotion === 'happy' ? 'text-green-600' :
+                        currentEmotion === 'sad' || currentEmotion === 'angry' ? 'text-red-600' :
+                        'text-blue-600'
+                      }`}>
+                        {currentEmotion}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Confidence:</span>
+                      <span className="font-semibold">
+                        {emotionData.length > 0 ? `${(emotionData[emotionData.length - 1].confidence * 100).toFixed(0)}%` : '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Transcription Display */}
+          {transcription && (
+            <div className="mt-6 p-4 bg-muted rounded-lg">
+              <p className="text-sm font-semibold mb-2">Your Response:</p>
+              <p className="text-sm">{transcription}</p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={skipQuestion}
+              disabled={isAnalyzing}
+              className="flex-1"
+            >
+              <SkipForward className="w-4 h-4 mr-2" />
+              Skip Question
+            </Button>
+            <Button
+              onClick={analyzeAnswer}
+              disabled={isAnalyzing || !transcription.trim()}
+              className="flex-1"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Submit Answer
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
