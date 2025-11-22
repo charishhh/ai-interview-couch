@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { Upload, FileText, CheckCircle2, AlertTriangle, Lightbulb, Target, Loade
 import { useDropzone } from "react-dropzone";
 
 export default function ResumeAnalyzerPage() {
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [jobRole, setJobRole] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
@@ -27,13 +29,42 @@ export default function ResumeAnalyzerPage() {
     },
   });
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
+    if (!file && !jobRole) {
+      alert("Please upload a resume or enter a job role");
+      return;
+    }
+
     setAnalyzing(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      const formData = new FormData();
+      if (file) {
+        formData.append("resume", file);
+      }
+      if (jobRole) {
+        formData.append("jobRole", jobRole);
+      }
+
+      const response = await fetch("/api/analyze-resume", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Resume analysis:", data);
+        setAnalyzed(true);
+      } else {
+        console.error("Failed to analyze resume");
+        alert("Failed to analyze resume. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error analyzing resume:", error);
+      alert("An error occurred. Please try again.");
+    } finally {
       setAnalyzing(false);
-      setAnalyzed(true);
-    }, 2000);
+    }
   };
 
   return (
@@ -73,7 +104,14 @@ export default function ResumeAnalyzerPage() {
                       {(file.size / 1024).toFixed(2)} KB
                     </p>
                   </div>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setFile(null);
+                      setAnalyzed(false);
+                    }}
+                  >
                     Change File
                   </Button>
                 </>
@@ -266,8 +304,16 @@ export default function ResumeAnalyzerPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button size="lg" asChild>
-                <a href="/dashboard/interview">Generate Tailored Interview</a>
+              <Button 
+                size="lg" 
+                onClick={() => {
+                  // Save context for tailored interview
+                  localStorage.setItem("resumeBasedInterview", "true");
+                  localStorage.setItem("targetRole", jobRole);
+                  router.push("/dashboard/interview");
+                }}
+              >
+                Generate Tailored Interview
               </Button>
             </CardContent>
           </Card>

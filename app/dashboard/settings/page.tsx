@@ -1,13 +1,67 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserButton } from "@clerk/nextjs";
+import { useTheme } from "next-themes";
+import { Moon, Sun } from "lucide-react";
 
 export default function SettingsPage() {
+  const { theme, setTheme } = useTheme();
+  const [firstName, setFirstName] = useState("Alex");
+  const [lastName, setLastName] = useState("Johnson");
+  const [role, setRole] = useState("Student");
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [autoSave, setAutoSave] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveChanges = () => {
+    setIsSaving(true);
+    // Save to localStorage or API
+    localStorage.setItem("userProfile", JSON.stringify({
+      firstName,
+      lastName,
+      role,
+    }));
+    
+    setTimeout(() => {
+      setIsSaving(false);
+      alert("Profile updated successfully!");
+    }, 1000);
+  };
+
+  const handleExportData = () => {
+    const interviews = localStorage.getItem("interviews") || "[]";
+    const userProfile = localStorage.getItem("userProfile") || "{}";
+    const exportData = {
+      profile: JSON.parse(userProfile),
+      interviews: JSON.parse(interviews),
+      exportDate: new Date().toISOString(),
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `interview-data-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteAccount = () => {
+    if (confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+      // Clear all data
+      localStorage.clear();
+      alert("Account data cleared. You'll be signed out.");
+      window.location.href = "/";
+    }
+  };
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
@@ -28,7 +82,13 @@ export default function SettingsPage() {
               <AvatarFallback>AJ</AvatarFallback>
             </Avatar>
             <div>
-              <Button variant="outline" size="sm">Change Photo</Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => alert("Photo upload feature coming soon! For now, use Clerk's user profile settings.")}
+              >
+                Change Photo
+              </Button>
               <p className="text-xs text-muted-foreground mt-1">JPG, PNG or GIF (max 2MB)</p>
             </div>
           </div>
@@ -36,11 +96,19 @@ export default function SettingsPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>
-              <Input id="firstName" defaultValue="Alex" />
+              <Input 
+                id="firstName" 
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lastName">Last Name</Label>
-              <Input id="lastName" defaultValue="Johnson" />
+              <Input 
+                id="lastName" 
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
             </div>
           </div>
 
@@ -54,10 +122,16 @@ export default function SettingsPage() {
 
           <div className="space-y-2">
             <Label htmlFor="role">Current Role</Label>
-            <Input id="role" defaultValue="Student" />
+            <Input 
+              id="role" 
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+            />
           </div>
 
-          <Button>Save Changes</Button>
+          <Button onClick={handleSaveChanges} disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save Changes"}
+          </Button>
         </CardContent>
       </Card>
 
@@ -75,8 +149,15 @@ export default function SettingsPage() {
                 Receive email summaries of your practice sessions
               </p>
             </div>
-            <Button variant="outline" size="sm">
-              Enabled
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setEmailNotifications(!emailNotifications);
+                localStorage.setItem("emailNotifications", String(!emailNotifications));
+              }}
+            >
+              {emailNotifications ? "Enabled" : "Disabled"}
             </Button>
           </div>
 
@@ -87,8 +168,15 @@ export default function SettingsPage() {
                 Automatically save your interview progress
               </p>
             </div>
-            <Button variant="outline" size="sm">
-              Enabled
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setAutoSave(!autoSave);
+                localStorage.setItem("autoSave", String(!autoSave));
+              }}
+            >
+              {autoSave ? "Enabled" : "Disabled"}
             </Button>
           </div>
 
@@ -99,8 +187,13 @@ export default function SettingsPage() {
                 Switch between light and dark theme
               </p>
             </div>
-            <Button variant="outline" size="sm">
-              Toggle
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            >
+              {theme === "dark" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+              <span className="ml-2">Toggle</span>
             </Button>
           </div>
         </CardContent>
@@ -132,13 +225,22 @@ export default function SettingsPage() {
                 Export all your interview data and results
               </p>
             </div>
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleExportData}
+            >
               Export
             </Button>
           </div>
 
           <div className="pt-4 border-t">
-            <Button variant="destructive">Delete Account</Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeleteAccount}
+            >
+              Delete Account
+            </Button>
             <p className="text-xs text-muted-foreground mt-2">
               This action cannot be undone. All your data will be permanently deleted.
             </p>
