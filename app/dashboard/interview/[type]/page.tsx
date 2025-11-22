@@ -54,8 +54,12 @@ export default function InterviewSessionPage() {
         const resumeText = localStorage.getItem("userResume");
         const targetRole = localStorage.getItem("targetRole");
 
-        if (isResumeBased && resumeText) {
+        // For technical interviews, ALWAYS try to use resume if available
+        const shouldUseResume = (isResumeBased || type === "technical") && resumeText;
+
+        if (shouldUseResume && resumeText) {
           // Generate AI questions based on resume
+          console.log("[INTERVIEW] Generating resume-based questions for", type, "interview");
           const response = await fetch("/api/generate-questions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -77,8 +81,10 @@ export default function InterviewSessionPage() {
               type: type,
             }));
             setQuestions(formattedQuestions);
+            console.log("[INTERVIEW] Loaded", formattedQuestions.length, "AI-generated questions");
           } else {
             // Fallback to default questions
+            console.log("[INTERVIEW] AI generation failed, using default questions");
             const fallbackResponse = await fetch(`/api/generate-questions?type=${type}`);
             const fallbackData = await fallbackResponse.json();
             setQuestions(fallbackData.questions || []);
@@ -87,7 +93,8 @@ export default function InterviewSessionPage() {
           // Clear the flag after loading
           localStorage.removeItem("resumeBasedInterview");
         } else {
-          // Use default questions
+          // Use default questions (only if no resume available)
+          console.log("[INTERVIEW] No resume available, using default questions");
           const response = await fetch(`/api/generate-questions?type=${type}`);
           const data = await response.json();
           setQuestions(data.questions || []);
