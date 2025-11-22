@@ -141,7 +141,7 @@ export default function Home() {
             <div className="bg-card border rounded-2xl p-6">
               <div className="flex items-center space-x-4 mb-4">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold">
-                  JD
+                  S
                 </div>
                 <div>
                   <div className="font-semibold">surya</div>
@@ -159,7 +159,7 @@ export default function Home() {
             <div className="bg-card border rounded-2xl p-6">
               <div className="flex items-center space-x-4 mb-4">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-bold">
-                  MC
+                  L
                 </div>
                 <div>
                   <div className="font-semibold">lohitha</div>
@@ -177,7 +177,7 @@ export default function Home() {
             <div className="bg-card border rounded-2xl p-6">
               <div className="flex items-center space-x-4 mb-4">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold">
-                  ER
+                  C
                 </div>
                 <div>
                   <div className="font-semibold">chandu</div>
